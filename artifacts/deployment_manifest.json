@@ -1,0 +1,32 @@
+{
+  "generated_at": "2026-03-26T12:04:48",
+  "deployed_models": [
+    {
+      "component": "Supervision",
+      "checkpoint_label": "supervised/resnet18_partial_finetune_224",
+      "checkpoint_path": "artifacts/supervised/resnet18_partial_finetune_224/best_model.pt",
+      "experiment_name": "chestmnist_supervised",
+      "run_name": "resnet18_partial_finetune_224",
+      "run_id": "d38d519509ef4b1aab7de8a84e40b8ae",
+      "duration": "42m 29s"
+    },
+    {
+      "component": "Anomalie",
+      "checkpoint_label": "anomaly/conv_autoencoder",
+      "checkpoint_path": "artifacts/anomaly/conv_autoencoder/best_autoencoder.pt",
+      "experiment_name": "chestmnist_anomaly",
+      "run_name": "conv_autoencoder",
+      "run_id": "59d650266dbb46d18e93eaf63963e47e",
+      "duration": "4m 44s"
+    },
+    {
+      "component": "Multimodal",
+      "checkpoint_label": "multimodal/iu_xray_fusion",
+      "checkpoint_path": "artifacts/multimodal/iu_xray_fusion/best_multimodal_model.pt",
+      "experiment_name": "radiology_multimodal",
+      "run_name": "iu_xray_fusion_text",
+      "run_id": "3a933d1dcf864d7c8c1dd5db6e9a9313",
+      "duration": "6m 45s"
+    }
+  ]
+}

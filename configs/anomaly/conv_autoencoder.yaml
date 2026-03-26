@@ -1,0 +1,28 @@
+seed: 42
+tracking_uri: "file:./mlruns"
+experiment_name: "chestmnist_anomaly"
+run_name: "conv_autoencoder"
+output_dir: "artifacts/anomaly/conv_autoencoder"
+
+dataset:
+  root: "data/medmnist"
+  size: 64
+  image_size: 64
+  batch_size: 64
+  num_workers: 0
+  as_rgb: false
+  normalization: "none"
+  download: true
+
+model:
+  name: "conv_autoencoder"
+  latent_channels: 128
+
+training:
+  epochs: 12
+  lr: 0.001
+  weight_decay: 0.00001
+  early_stopping_patience: 4
+
+evaluation:
+  threshold_quantile: 0.95

@@ -1,0 +1,47 @@
+seed: 42
+tracking_uri: "file:./mlruns"
+experiment_name: "radiology_multimodal"
+run_name: "nih_metadata_only"
+output_dir: "artifacts/multimodal/nih_metadata_only"
+
+dataset:
+  csv_path: "data/nih/nih_multimodal_metadata.csv"
+  image_base_dir: "."
+  split_column: "split"
+  image_column: "image_path"
+  text_column: "metadata_text"
+  label_columns:
+    - "atelectasis"
+    - "cardiomegaly"
+    - "effusion"
+    - "infiltration"
+    - "mass"
+    - "nodule"
+    - "pneumonia"
+    - "pneumothorax"
+    - "consolidation"
+    - "edema"
+    - "emphysema"
+    - "fibrosis"
+    - "pleural"
+    - "hernia"
+  image_size: 128
+  batch_size: 16
+  num_workers: 0
+  max_length: 128
+  min_token_freq: 1
+  max_vocab_size: 5000
+
+model:
+  mode: "text_only"
+  text_embedding_dim: 128
+  dropout: 0.2
+
+training:
+  epochs: 8
+  lr: 0.001
+  weight_decay: 0.0001
+  scheduler: "cosine"
+  use_pos_weight: true
+  early_stopping_patience: 3
+

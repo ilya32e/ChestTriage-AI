@@ -1,0 +1,29 @@
+seed: 42
+tracking_uri: "file:./mlruns"
+experiment_name: "chestmnist_supervised"
+run_name: "resnet18_transfer_learning"
+output_dir: "artifacts/supervised/resnet18"
+
+dataset:
+  root: "data/medmnist"
+  size: 128
+  image_size: 224
+  batch_size: 32
+  num_workers: 0
+  as_rgb: true
+  normalization: "imagenet"
+  download: true
+
+model:
+  name: "resnet18"
+  pretrained: true
+  dropout: 0.2
+  freeze_backbone: true
+
+training:
+  epochs: 5
+  lr: 0.0003
+  weight_decay: 0.0001
+  scheduler: "cosine"
+  use_pos_weight: true
+  early_stopping_patience: 3

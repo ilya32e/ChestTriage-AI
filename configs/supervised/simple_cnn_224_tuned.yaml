@@ -1,0 +1,29 @@
+seed: 42
+tracking_uri: "file:./mlruns"
+experiment_name: "chestmnist_supervised"
+run_name: "simple_cnn_224_tuned"
+output_dir: "artifacts/supervised/simple_cnn_224_tuned"
+
+dataset:
+  root: "data/medmnist"
+  size: 224
+  image_size: 224
+  batch_size: 32
+  num_workers: 0
+  as_rgb: true
+  normalization: "imagenet"
+  download: true
+
+model:
+  name: "simple_cnn"
+  pretrained: false
+  dropout: 0.3
+  freeze_backbone: false
+
+training:
+  epochs: 16
+  lr: 0.0007
+  weight_decay: 0.0002
+  scheduler: "cosine"
+  use_pos_weight: true
+  early_stopping_patience: 4

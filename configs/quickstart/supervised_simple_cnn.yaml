@@ -1,0 +1,33 @@
+seed: 42
+tracking_uri: "file:./mlruns"
+experiment_name: "quickstart_supervised"
+run_name: "quickstart_simple_cnn"
+output_dir: "artifacts/quickstart/supervised_simple_cnn"
+
+dataset:
+  root: "data/medmnist"
+  size: 28
+  image_size: 64
+  batch_size: 128
+  num_workers: 0
+  as_rgb: true
+  normalization: "imagenet"
+  download: true
+  max_train_samples: 2048
+  max_val_samples: 512
+  max_test_samples: 512
+
+model:
+  name: "simple_cnn"
+  pretrained: false
+  dropout: 0.25
+  freeze_backbone: false
+
+training:
+  epochs: 1
+  lr: 0.001
+  weight_decay: 0.0001
+  scheduler: "none"
+  use_pos_weight: true
+  early_stopping_patience: 1
+

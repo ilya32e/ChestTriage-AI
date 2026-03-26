@@ -1,0 +1,32 @@
+seed: 42
+tracking_uri: "file:./mlruns"
+experiment_name: "chestmnist_supervised"
+run_name: "resnet18_partial_finetune_layer4_fc"
+output_dir: "artifacts/supervised/resnet18_partial_finetune"
+
+dataset:
+  root: "data/medmnist"
+  size: 128
+  image_size: 224
+  batch_size: 32
+  num_workers: 0
+  as_rgb: true
+  normalization: "imagenet"
+  download: true
+
+model:
+  name: "resnet18"
+  pretrained: true
+  dropout: 0.2
+  freeze_backbone: false
+  fine_tuning_mode: "resnet18_layer4_fc"
+
+training:
+  epochs: 8
+  lr: 0.0003
+  backbone_lr: 0.00003
+  head_lr: 0.0003
+  weight_decay: 0.0001
+  scheduler: "cosine"
+  use_pos_weight: true
+  early_stopping_patience: 3

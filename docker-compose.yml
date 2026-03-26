@@ -1,0 +1,64 @@
+services:
+  streamlit:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: radiotriage-streamlit
+    working_dir: /workspace
+    command:
+      [
+        "python",
+        "-m",
+        "streamlit",
+        "run",
+        "app/streamlit_app.py",
+        "--server.address=0.0.0.0",
+        "--server.port=8501",
+      ]
+    ports:
+      - "8501:8501"
+    environment:
+      MLFLOW_TRACKING_URI: http://mlflow:5000
+      PYTHONPATH: /workspace/src
+      STREAMLIT_SERVER_HEADLESS: "true"
+      STREAMLIT_SERVER_FILE_WATCHER_TYPE: poll
+    volumes:
+      - .:/workspace
+    depends_on:
+      - mlflow
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://127.0.0.1:8501/_stcore/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 20s
+
+  mlflow:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: radiotriage-mlflow
+    working_dir: /workspace
+    command:
+      [
+        "mlflow",
+        "ui",
+        "--backend-store-uri",
+        "file:/workspace/mlruns",
+        "--host",
+        "0.0.0.0",
+        "--port",
+        "5000",
+      ]
+    ports:
+      - "5000:5000"
+    environment:
+      PYTHONPATH: /workspace/src
+    volumes:
+      - .:/workspace
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://127.0.0.1:5000/"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 15s

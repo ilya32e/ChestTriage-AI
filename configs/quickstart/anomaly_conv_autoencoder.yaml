@@ -1,0 +1,31 @@
+seed: 42
+tracking_uri: "file:./mlruns"
+experiment_name: "quickstart_anomaly"
+run_name: "quickstart_conv_autoencoder"
+output_dir: "artifacts/quickstart/anomaly_conv_autoencoder"
+
+dataset:
+  root: "data/medmnist"
+  size: 64
+  image_size: 64
+  batch_size: 128
+  num_workers: 0
+  as_rgb: false
+  normalization: "none"
+  download: true
+  max_train_samples: 2048
+  max_val_samples: 512
+  max_test_samples: 512
+
+model:
+  latent_channels: 64
+
+training:
+  epochs: 1
+  lr: 0.001
+  weight_decay: 0.00001
+  early_stopping_patience: 1
+
+evaluation:
+  threshold_quantile: 0.95
+
