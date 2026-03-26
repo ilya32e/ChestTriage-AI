@@ -7,34 +7,11 @@ __pycache__/
 venv/
 env/
 
-artifacts/**
-!artifacts/
-!artifacts/deployment_manifest.json
-!artifacts/eda/
-!artifacts/eda/class_distribution.png
-!artifacts/eda/label_cooccurrence.png
-!artifacts/eda/sample_images.png
-!artifacts/anomaly/
-!artifacts/anomaly/conv_autoencoder/
-!artifacts/anomaly/conv_autoencoder/confusion_matrix.png
-!artifacts/supervised/
-!artifacts/supervised/resnet18_partial_finetune_224/
-!artifacts/supervised/resnet18_partial_finetune_224/training_curves.png
-!artifacts/supervised/resnet18_partial_finetune_224/per_class_roc_auc.png
-!artifacts/supervised/resnet18_partial_finetune_224/confusion_matrix.png
-!artifacts/screencapture-127-0-0-1-8501-2026-03-26-12_23_49.png
-!artifacts/screencapture-127-0-0-1-5000-2026-03-26-12_33_42.png
+artifacts/
 mlruns/
 logs/
 outputs/
-
-report/*.aux
-report/*.fdb_latexmk
-report/*.fls
-report/*.log
-report/*.out
-report/*.synctex.gz
-report/*.toc
+report/
 
 # Local datasets regenerated from scripts
 data/medmnist/**
