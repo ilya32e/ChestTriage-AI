@@ -14,9 +14,13 @@ outputs/
 report/
 
 # Local datasets regenerated from scripts
+!data/.gitkeep
 data/medmnist/**
+!data/medmnist/.gitkeep
 data/iu_xray/**
+!data/iu_xray/.gitkeep
 data/nih/**
+!data/nih/.gitkeep
 !data/multimodal_metadata.example.csv
 
 *.pt
