@@ -14,10 +14,38 @@ from torchvision import transforms
 
 
 TOKEN_PATTERN = re.compile(r"[a-z0-9']+")
+LABEL_REDACTION_PATTERNS = {
+    "atelectasis": [r"atelecta(?:sis|tic)"],
+    "cardiomegaly": [
+        r"cardiomegaly",
+        r"cardiac silhouette",
+        r"heart size",
+    ],
+    "effusion": [r"pleural effusions?", r"\beffusions?\b"],
+    "edema": [r"pulmonary edema", r"\bedema\b"],
+    "pneumothorax": [r"pneumothorax"],
+    "hernia": [r"hiatal hernia", r"\bhernia\b"],
+}
 
 
 def simple_tokenize(text: str) -> list[str]:
     return TOKEN_PATTERN.findall((text or "").lower())
+
+
+def redact_report_label_mentions(text: str) -> str:
+    redacted_text = text or ""
+    for label_name, patterns in LABEL_REDACTION_PATTERNS.items():
+        placeholder = f" finding_{label_name} "
+        for pattern in patterns:
+            redacted_text = re.sub(pattern, placeholder, redacted_text, flags=re.IGNORECASE)
+    return " ".join(redacted_text.split())
+
+
+def preprocess_report_text(text: str, redact_label_mentions: bool = False) -> str:
+    normalized_text = " ".join((text or "").split())
+    if redact_label_mentions:
+        return redact_report_label_mentions(normalized_text)
+    return normalized_text
 
 
 class Vocabulary:
@@ -80,6 +108,7 @@ class MultimodalRadiologyDataset(Dataset):
         image_column: str,
         text_column: str,
         base_dir: Path,
+        redact_label_mentions: bool = False,
     ) -> None:
         self.dataframe = dataframe.reset_index(drop=True).copy()
         self.label_columns = label_columns
@@ -89,6 +118,7 @@ class MultimodalRadiologyDataset(Dataset):
         self.image_column = image_column
         self.text_column = text_column
         self.base_dir = base_dir
+        self.redact_label_mentions = redact_label_mentions
 
     def __len__(self) -> int:
         return len(self.dataframe)
@@ -98,7 +128,11 @@ class MultimodalRadiologyDataset(Dataset):
         image_path = (self.base_dir / str(row[self.image_column])).resolve()
         image = Image.open(image_path).convert("RGB")
         image_tensor = self.image_transform(image)
-        input_ids, attention_mask = self.vocab.encode(str(row.get(self.text_column, "")), self.max_length)
+        report_text = preprocess_report_text(
+            str(row.get(self.text_column, "")),
+            redact_label_mentions=self.redact_label_mentions,
+        )
+        input_ids, attention_mask = self.vocab.encode(report_text, self.max_length)
         labels = torch.tensor(row[self.label_columns].values.astype("float32"))
         return {
             "image": image_tensor,
@@ -129,6 +163,7 @@ def build_multimodal_loaders(config: dict) -> MultimodalLoaders:
     text_column = dataset_cfg.get("text_column", "report_text")
     label_columns = dataset_cfg["label_columns"]
     base_dir = Path(dataset_cfg.get("image_base_dir", csv_path.parent))
+    redact_label_mentions = dataset_cfg.get("redact_label_mentions", False)
 
     seed = config.get("seed", 42)
     train_df = dataframe[dataframe[split_column] == "train"].copy()
@@ -141,7 +176,10 @@ def build_multimodal_loaders(config: dict) -> MultimodalLoaders:
         raise ValueError("The multimodal CSV must contain train, val and test splits.")
 
     vocab = Vocabulary.build(
-        texts=train_df[text_column].fillna("").astype(str).tolist(),
+        texts=[
+            preprocess_report_text(text, redact_label_mentions=redact_label_mentions)
+            for text in train_df[text_column].fillna("").astype(str).tolist()
+        ],
         min_freq=dataset_cfg.get("min_token_freq", 2),
         max_size=dataset_cfg.get("max_vocab_size", 20000),
     )
@@ -178,6 +216,7 @@ def build_multimodal_loaders(config: dict) -> MultimodalLoaders:
                 image_column=image_column,
                 text_column=text_column,
                 base_dir=base_dir,
+                redact_label_mentions=redact_label_mentions,
             ),
             shuffle=True,
             **loader_kwargs,
@@ -192,6 +231,7 @@ def build_multimodal_loaders(config: dict) -> MultimodalLoaders:
                 image_column=image_column,
                 text_column=text_column,
                 base_dir=base_dir,
+                redact_label_mentions=redact_label_mentions,
             ),
             shuffle=False,
             **loader_kwargs,
@@ -206,6 +246,7 @@ def build_multimodal_loaders(config: dict) -> MultimodalLoaders:
                 image_column=image_column,
                 text_column=text_column,
                 base_dir=base_dir,
+                redact_label_mentions=redact_label_mentions,
             ),
             shuffle=False,
             **loader_kwargs,

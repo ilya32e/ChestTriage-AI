@@ -18,7 +18,7 @@ if str(SRC) not in sys.path:
     sys.path.insert(0, str(SRC))
 
 from radiology_triage.data.chestmnist import build_transforms  # noqa: E402
-from radiology_triage.data.multimodal import Vocabulary  # noqa: E402
+from radiology_triage.data.multimodal import Vocabulary, preprocess_report_text  # noqa: E402
 try:  # noqa: E402
     from radiology_triage.models.autoencoder import build_reconstruction_model  # type: ignore[attr-defined]
 except ImportError:  # pragma: no cover - defensive fallback for stale environments
@@ -343,7 +343,11 @@ def score_anomaly(bundle: dict, image: Image.Image) -> dict[str, Any]:
 
 def predict_multimodal(bundle: dict, image: Image.Image, report_text: str) -> dict[str, Any]:
     tensor = bundle["transform"](image.convert("RGB")).unsqueeze(0).to(DEVICE)
-    input_ids, attention_mask = bundle["vocab"].encode(report_text, bundle["max_length"])
+    model_text = preprocess_report_text(
+        report_text,
+        redact_label_mentions=bundle["config"]["dataset"].get("redact_label_mentions", False),
+    )
+    input_ids, attention_mask = bundle["vocab"].encode(model_text, bundle["max_length"])
     input_ids = input_ids.unsqueeze(0).to(DEVICE)
     attention_mask = attention_mask.unsqueeze(0).to(DEVICE)
     with torch.no_grad():
@@ -452,17 +456,15 @@ deployment_manifest = load_deployment_manifest(str(ROOT / "artifacts" / "deploym
 with st.sidebar:
     st.subheader("Options")
     show_gradcam = st.checkbox("Activer Grad-CAM", value=False)
-    with st.expander("Modifier les checkpoints", expanded=False):
+with st.expander("Modifier les checkpoints", expanded=False):
         supervised_path = st.text_input(
             "Checkpoint supervisé",
             value=resolve_default_checkpoint(
                 [
-                    "artifacts/supervised/resnet18_partial_finetune_224/best_model.pt",
-                    "artifacts/supervised/simple_cnn_224_tuned/best_model.pt",
+                    "artifacts/supervised/simple_cnn_224/best_model.pt",
                     "artifacts/supervised/simple_cnn/best_model.pt",
                     "artifacts/supervised/resnet18/best_model.pt",
                     "artifacts/supervised/tiny_vit/best_model.pt",
-                    "artifacts/supervised/vit_b16/best_model.pt",
                 ]
             ),
         )
@@ -472,16 +474,27 @@ with st.sidebar:
         )
         multimodal_image_path = st.text_input(
             "Checkpoint image seule",
-            value=resolve_default_checkpoint(["artifacts/multimodal/iu_xray_image_only/best_multimodal_model.pt"]),
+            value=resolve_default_checkpoint(
+                [
+                    "artifacts/multimodal/iu_xray_image_only_224/best_multimodal_model.pt",
+                    "artifacts/multimodal/iu_xray_image_only/best_multimodal_model.pt",
+                ]
+            ),
         )
         multimodal_text_path = st.text_input(
             "Checkpoint texte seul",
-            value=resolve_default_checkpoint(["artifacts/multimodal/iu_xray_text_only/best_multimodal_model.pt"]),
+            value=resolve_default_checkpoint(
+                [
+                    "artifacts/multimodal/iu_xray_text_only_224/best_multimodal_model.pt",
+                    "artifacts/multimodal/iu_xray_text_only/best_multimodal_model.pt",
+                ]
+            ),
         )
         multimodal_fusion_path = st.text_input(
             "Checkpoint fusion",
             value=resolve_default_checkpoint(
                 [
+                    "artifacts/multimodal/iu_xray_fusion_224/best_multimodal_model.pt",
                     "artifacts/multimodal/iu_xray_fusion/best_multimodal_model.pt",
                     "artifacts/multimodal/fusion/best_multimodal_model.pt",
                 ]

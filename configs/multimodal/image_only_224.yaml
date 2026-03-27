@@ -1,8 +1,8 @@
 seed: 42
 tracking_uri: "file:./mlruns"
-experiment_name: "quickstart_multimodal"
-run_name: "quickstart_iu_xray_fusion"
-output_dir: "artifacts/quickstart/multimodal_iu_xray_fusion"
+experiment_name: "radiology_multimodal"
+run_name: "iu_xray_image_only_224"
+output_dir: "artifacts/multimodal/iu_xray_image_only_224"
 
 dataset:
   csv_path: "data/iu_xray/iu_xray_multimodal.csv"
@@ -17,29 +17,23 @@ dataset:
     - "edema"
     - "pneumothorax"
     - "hernia"
-  image_size: 96
-  batch_size: 32
+  image_size: 224
+  batch_size: 8
   num_workers: 0
-  max_length: 96
+  max_length: 128
   min_token_freq: 1
   max_vocab_size: 5000
   redact_label_mentions: true
-  max_train_samples: 1024
-  max_val_samples: 256
-  max_test_samples: 256
 
 model:
-  mode: "fusion"
+  mode: "image_only"
   image_embedding_dim: 128
-  text_embedding_dim: 128
-  fusion_hidden_dim: 256
-  dropout: 0.25
-  modality_dropout: 0.2
+  dropout: 0.2
 
 training:
-  epochs: 1
+  epochs: 8
   lr: 0.001
   weight_decay: 0.0001
-  scheduler: "none"
+  scheduler: "cosine"
   use_pos_weight: true
-  early_stopping_patience: 1
+  early_stopping_patience: 3

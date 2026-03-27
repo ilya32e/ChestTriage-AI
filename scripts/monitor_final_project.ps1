@@ -2,7 +2,7 @@ $projectRoot = Split-Path -Parent $PSScriptRoot
 Set-Location $projectRoot
 
 Write-Host "Services actifs:"
-Get-NetTCPConnection -LocalPort 5000,8501 -State Listen -ErrorAction SilentlyContinue |
+Get-NetTCPConnection -LocalPort 5000,5001,8501 -State Listen -ErrorAction SilentlyContinue |
     Select-Object LocalPort, OwningProcess, State |
     Format-Table -AutoSize
 

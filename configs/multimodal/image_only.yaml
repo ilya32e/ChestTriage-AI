@@ -23,6 +23,7 @@ dataset:
   max_length: 128
   min_token_freq: 1
   max_vocab_size: 5000
+  redact_label_mentions: true
 
 model:
   mode: "image_only"

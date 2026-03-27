@@ -194,16 +194,6 @@ def supervised_rows(client: MlflowClient) -> list[RunSnapshot]:
         ),
         build_snapshot(
             client,
-            label="ResNet18 partial FT 224",
-            experiment_name="chestmnist_supervised",
-            run_name="resnet18_partial_finetune_224",
-            best_metric="best_val_macro_roc_auc",
-            test_roc_auc_metric="test_macro_roc_auc",
-            test_ap_metric="test_macro_average_precision",
-            test_f1_metric="test_macro_f1",
-        ),
-        build_snapshot(
-            client,
             label="TinyViT",
             experiment_name="chestmnist_supervised",
             run_name="tiny_vit",
@@ -313,9 +303,9 @@ def render_robustness_table(row: tuple[str, str, str]) -> list[str]:
 def build_deployment_entries(client: MlflowClient) -> list[DeploymentEntry]:
     selected_supervised = build_snapshot(
         client,
-        label="ResNet18 partial FT 224",
+        label="SimpleCNN",
         experiment_name="chestmnist_supervised",
-        run_name="resnet18_partial_finetune_224",
+        run_name="simple_cnn_from_scratch",
         best_metric="best_val_macro_roc_auc",
         test_roc_auc_metric="test_macro_roc_auc",
         test_ap_metric="test_macro_average_precision",
@@ -344,8 +334,8 @@ def build_deployment_entries(client: MlflowClient) -> list[DeploymentEntry]:
     return [
         DeploymentEntry(
             component="Supervision",
-            checkpoint_label="supervised/resnet18_partial_finetune_224",
-            checkpoint_path="artifacts/supervised/resnet18_partial_finetune_224/best_model.pt",
+            checkpoint_label="supervised/simple_cnn",
+            checkpoint_path="artifacts/supervised/simple_cnn/best_model.pt",
             experiment_name=selected_supervised.experiment_name,
             run_name=selected_supervised.run_name,
             run_id=selected_supervised.run_id,
