@@ -23,14 +23,14 @@ python .\scripts\train_supervised.py --config .\configs\supervised\tiny_vit_224.
 Write-Host "[6/10] Training anomaly model: Conv Autoencoder..."
 python .\scripts\train_anomaly.py --config .\configs\anomaly\conv_autoencoder.yaml
 
-Write-Host "[7/10] Training multimodal baseline: image only 224..."
-python .\scripts\train_multimodal.py --config .\configs\multimodal\image_only_224.yaml
+Write-Host "[7/10] Training multimodal baseline: NIH image only 224..."
+python .\scripts\train_multimodal.py --config .\configs\multimodal\image_only_nih_metadata_224.yaml
 
-Write-Host "[8/10] Training multimodal baseline: text only 224..."
-python .\scripts\train_multimodal.py --config .\configs\multimodal\text_only_224.yaml
+Write-Host "[8/10] Training multimodal baseline: NIH metadata only 224..."
+python .\scripts\train_multimodal.py --config .\configs\multimodal\text_only_nih_metadata_224.yaml
 
-Write-Host "[9/10] Training multimodal fusion model 224..."
-python .\scripts\train_multimodal.py --config .\configs\multimodal\fusion_224.yaml
+Write-Host "[9/10] Training multimodal fusion model: NIH image + metadata 224..."
+python .\scripts\train_multimodal.py --config .\configs\multimodal\fusion_nih_metadata_224.yaml
 
 Write-Host "[10/10] Starting Streamlit app..."
 python -m streamlit run .\app\streamlit_app.py --server.address 127.0.0.1 --server.port 8501

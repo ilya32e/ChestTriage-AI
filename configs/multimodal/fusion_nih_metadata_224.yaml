@@ -1,29 +1,39 @@
 seed: 42
+deterministic: false
 tracking_uri: "file:./mlruns"
 experiment_name: "radiology_multimodal"
-run_name: "iu_xray_fusion_text_224"
-output_dir: "artifacts/multimodal/iu_xray_fusion_224"
+run_name: "nih_fusion_metadata_224"
+output_dir: "artifacts/multimodal/nih_fusion_224"
 
 dataset:
-  csv_path: "data/iu_xray/iu_xray_multimodal.csv"
-  image_base_dir: "data/iu_xray"
+  csv_path: "data/nih/nih_multimodal_metadata.csv"
+  image_base_dir: "."
   split_column: "split"
   image_column: "image_path"
-  text_column: "report_text"
+  text_column: "metadata_text"
   label_columns:
     - "atelectasis"
     - "cardiomegaly"
     - "effusion"
-    - "edema"
+    - "infiltration"
+    - "mass"
+    - "nodule"
+    - "pneumonia"
     - "pneumothorax"
+    - "consolidation"
+    - "edema"
+    - "emphysema"
+    - "fibrosis"
+    - "pleural"
     - "hernia"
   image_size: 224
-  batch_size: 8
-  num_workers: 0
+  batch_size: 32
+  num_workers: 8
+  persistent_workers: true
+  prefetch_factor: 4
   max_length: 128
   min_token_freq: 1
   max_vocab_size: 5000
-  redact_label_mentions: true
 
 model:
   mode: "fusion"
@@ -39,4 +49,5 @@ training:
   weight_decay: 0.0001
   scheduler: "cosine"
   use_pos_weight: true
+  use_amp: true
   early_stopping_patience: 3

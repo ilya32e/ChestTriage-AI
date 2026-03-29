@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 import re
 from collections import Counter
 from dataclasses import dataclass
@@ -109,6 +110,8 @@ class MultimodalRadiologyDataset(Dataset):
         text_column: str,
         base_dir: Path,
         redact_label_mentions: bool = False,
+        load_image: bool = True,
+        load_text: bool = True,
     ) -> None:
         self.dataframe = dataframe.reset_index(drop=True).copy()
         self.label_columns = label_columns
@@ -119,6 +122,11 @@ class MultimodalRadiologyDataset(Dataset):
         self.text_column = text_column
         self.base_dir = base_dir
         self.redact_label_mentions = redact_label_mentions
+        self.load_image = load_image
+        self.load_text = load_text
+        self.empty_image_tensor = torch.zeros(1, dtype=torch.float32)
+        self.empty_input_ids = torch.zeros(1, dtype=torch.long)
+        self.empty_attention_mask = torch.zeros(1, dtype=torch.float32)
 
     def __len__(self) -> int:
         return len(self.dataframe)
@@ -126,20 +134,29 @@ class MultimodalRadiologyDataset(Dataset):
     def __getitem__(self, index: int) -> dict[str, Any]:
         row = self.dataframe.iloc[index]
         image_path = (self.base_dir / str(row[self.image_column])).resolve()
-        image = Image.open(image_path).convert("RGB")
-        image_tensor = self.image_transform(image)
-        report_text = preprocess_report_text(
-            str(row.get(self.text_column, "")),
-            redact_label_mentions=self.redact_label_mentions,
-        )
-        input_ids, attention_mask = self.vocab.encode(report_text, self.max_length)
+        if self.load_image:
+            image = Image.open(image_path).convert("RGB")
+            image_tensor = self.image_transform(image)
+        else:
+            image_tensor = self.empty_image_tensor
+
+        raw_report_text = str(row.get(self.text_column, ""))
+        if self.load_text:
+            report_text = preprocess_report_text(
+                raw_report_text,
+                redact_label_mentions=self.redact_label_mentions,
+            )
+            input_ids, attention_mask = self.vocab.encode(report_text, self.max_length)
+        else:
+            input_ids = self.empty_input_ids
+            attention_mask = self.empty_attention_mask
         labels = torch.tensor(row[self.label_columns].values.astype("float32"))
         return {
             "image": image_tensor,
             "input_ids": input_ids,
             "attention_mask": attention_mask,
             "labels": labels,
-            "report_text": str(row.get(self.text_column, "")),
+            "report_text": raw_report_text,
             "image_path": str(image_path),
         }
 
@@ -155,6 +172,7 @@ class MultimodalLoaders:
 
 def build_multimodal_loaders(config: dict) -> MultimodalLoaders:
     dataset_cfg = config["dataset"]
+    mode = config["model"]["mode"].lower()
     csv_path = Path(dataset_cfg["csv_path"])
     dataframe = pd.read_csv(csv_path)
 
@@ -200,11 +218,39 @@ def build_multimodal_loaders(config: dict) -> MultimodalLoaders:
         ]
     )
 
-    loader_kwargs = {
-        "batch_size": dataset_cfg["batch_size"],
-        "num_workers": dataset_cfg.get("num_workers", 0),
-        "pin_memory": bool(torch.cuda.is_available()),
+    train_batch_size = dataset_cfg["batch_size"]
+    eval_batch_size = dataset_cfg.get("eval_batch_size", train_batch_size)
+    train_num_workers = dataset_cfg.get("num_workers", 0)
+    default_eval_num_workers = 0 if os.name == "nt" else train_num_workers
+    eval_num_workers = dataset_cfg.get("eval_num_workers", default_eval_num_workers)
+    pin_memory = bool(torch.cuda.is_available())
+
+    train_loader_kwargs = {
+        "batch_size": train_batch_size,
+        "num_workers": train_num_workers,
+        "pin_memory": pin_memory,
     }
+    if train_num_workers > 0:
+        train_loader_kwargs["persistent_workers"] = dataset_cfg.get("persistent_workers", True)
+        train_loader_kwargs["prefetch_factor"] = dataset_cfg.get("prefetch_factor", 2)
+
+    eval_loader_kwargs = {
+        "batch_size": eval_batch_size,
+        "num_workers": eval_num_workers,
+        "pin_memory": pin_memory,
+    }
+    if eval_num_workers > 0:
+        eval_loader_kwargs["persistent_workers"] = dataset_cfg.get(
+            "eval_persistent_workers",
+            dataset_cfg.get("persistent_workers", True),
+        )
+        eval_loader_kwargs["prefetch_factor"] = dataset_cfg.get(
+            "eval_prefetch_factor",
+            dataset_cfg.get("prefetch_factor", 2),
+        )
+
+    load_image = mode not in {"text", "text_only"}
+    load_text = mode not in {"image", "image_only"}
     return MultimodalLoaders(
         train=DataLoader(
             MultimodalRadiologyDataset(
@@ -217,9 +263,11 @@ def build_multimodal_loaders(config: dict) -> MultimodalLoaders:
                 text_column=text_column,
                 base_dir=base_dir,
                 redact_label_mentions=redact_label_mentions,
+                load_image=load_image,
+                load_text=load_text,
             ),
             shuffle=True,
-            **loader_kwargs,
+            **train_loader_kwargs,
         ),
         val=DataLoader(
             MultimodalRadiologyDataset(
@@ -232,9 +280,11 @@ def build_multimodal_loaders(config: dict) -> MultimodalLoaders:
                 text_column=text_column,
                 base_dir=base_dir,
                 redact_label_mentions=redact_label_mentions,
+                load_image=load_image,
+                load_text=load_text,
             ),
             shuffle=False,
-            **loader_kwargs,
+            **eval_loader_kwargs,
         ),
         test=DataLoader(
             MultimodalRadiologyDataset(
@@ -247,9 +297,11 @@ def build_multimodal_loaders(config: dict) -> MultimodalLoaders:
                 text_column=text_column,
                 base_dir=base_dir,
                 redact_label_mentions=redact_label_mentions,
+                load_image=load_image,
+                load_text=load_text,
             ),
             shuffle=False,
-            **loader_kwargs,
+            **eval_loader_kwargs,
         ),
         vocab=vocab,
         label_names=label_columns,

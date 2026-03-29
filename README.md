@@ -1,64 +1,51 @@
 # Systeme d'aide au tri radiologique
 
-Ce depot contient notre projet de deep learning sur des radiographies thoraciques.
+Projet de deep learning realise par Mouradi Iliasse et Mahi Karima.
 
-Projet realise en collaboration par Mouradi Iliasse et Mahi Karima.
+L'idee du sujet etait de construire un petit systeme de tri radiologique autour de radios thoraciques, pas juste un classifieur. Du coup on a separe le projet en plusieurs blocs :
 
-Le but est de combiner plusieurs briques dans un meme pipeline :
+- une partie supervision sur images
+- une partie detection d'anomalies avec autoencodeur
+- une partie multimodale
+- le suivi des experiences avec MLflow
+- une demo Streamlit pour tester le tout
 
-- une classification supervisee sur images
-- une detection d'anomalies avec un autoencodeur
-- une petite preuve de concept multimodale image + texte
-- un suivi des experiences avec MLflow
-- une demo Streamlit pour tester le systeme
+## Ce qu'on a garde dans la version finale
 
-## Ce qu'on a implemente
-
-### Partie supervisee
-
-On compare 3 architectures, comme demande dans le sujet :
+Pour la partie supervisee, on compare bien les 3 familles demandees dans le sujet :
 
 - `SimpleCNN` entraine depuis zero
 - `ResNet18` en transfer learning
-- `TinyViT` pour la famille Transformer
+- `TinyViT` pour la partie Transformer
 
-Configs associees :
+Configs :
 
 - [`configs/supervised/simple_cnn.yaml`](configs/supervised/simple_cnn.yaml)
 - [`configs/supervised/resnet18_transfer.yaml`](configs/supervised/resnet18_transfer.yaml)
 - [`configs/supervised/tiny_vit.yaml`](configs/supervised/tiny_vit.yaml)
 
-### Detection d'anomalies
-
-La partie anomalie repose sur un autoencodeur convolutionnel :
+Pour l'anomalie, on a garde un autoencodeur convolutionnel :
 
 - [`configs/anomaly/conv_autoencoder.yaml`](configs/anomaly/conv_autoencoder.yaml)
 - [`src/radiology_triage/models/autoencoder.py`](src/radiology_triage/models/autoencoder.py)
 
-### Partie multimodale
-
-Pour la preuve de concept multimodale, on compare :
+Pour le multimodal, dans la version finale du projet, on utilise NIH et pas IU X-Ray. On compare :
 
 - `image_only`
-- `text_only`
+- `metadata_only`
 - `fusion`
 
-Configs associees :
+Configs :
 
-- [`configs/multimodal/image_only.yaml`](configs/multimodal/image_only.yaml)
-- [`configs/multimodal/text_only.yaml`](configs/multimodal/text_only.yaml)
-- [`configs/multimodal/fusion.yaml`](configs/multimodal/fusion.yaml)
+- [`configs/multimodal/image_only_nih_metadata.yaml`](configs/multimodal/image_only_nih_metadata.yaml)
+- [`configs/multimodal/text_only_nih_metadata.yaml`](configs/multimodal/text_only_nih_metadata.yaml)
+- [`configs/multimodal/fusion_nih_metadata.yaml`](configs/multimodal/fusion_nih_metadata.yaml)
 
-### Suivi et demo
+## Donnees utilisees
 
-- suivi experimental avec `MLflow`
-- application locale avec `Streamlit`
+### ChestMNIST
 
-## Jeux de donnees
-
-### 1. ChestMNIST
-
-Utilise pour :
+On l'utilise pour :
 
 - la classification supervisee
 - la detection d'anomalies
@@ -66,49 +53,33 @@ Utilise pour :
 Sources :
 
 - site officiel : [https://medmnist.com/](https://medmnist.com/)
-- depot Git : [https://github.com/MedMNIST/MedMNIST](https://github.com/MedMNIST/MedMNIST)
+- repo Git : [https://github.com/MedMNIST/MedMNIST](https://github.com/MedMNIST/MedMNIST)
 - article : Yang et al., 2023
-  [https://doi.org/10.1038/s41597-022-01721-8](https://doi.org/10.1038/s41597-022-01721-8)
 
 Le chargement passe par :
 
 - [`src/radiology_triage/data/chestmnist.py`](src/radiology_triage/data/chestmnist.py)
 
-### 2. IU X-Ray / OpenI
+### NIH Chest X-rays
 
-Utilise pour la partie `image + texte`.
-
-Sources :
-
-- mirror Hugging Face : [https://huggingface.co/datasets/dz-osamu/IU-Xray](https://huggingface.co/datasets/dz-osamu/IU-Xray)
-- article : Demner-Fushman et al., 2016
-  [https://doi.org/10.1093/jamia/ocv080](https://doi.org/10.1093/jamia/ocv080)
-
-Fichiers prepares localement :
-
-- [`data/iu_xray/iu_xray_multimodal.csv`](data/iu_xray/iu_xray_multimodal.csv)
-- [`data/iu_xray/import_summary.json`](data/iu_xray/import_summary.json)
-
-Important :
-
-- dans cette branche, les labels sont des `weak labels` derives du texte
-
-### 3. NIH Chest X-rays
-
-Cette partie est gardee comme variante complementaire.
+On l'utilise pour la partie multimodale.
 
 Sources :
 
 - fiche dataset : [https://www.innovatiana.com/fr/datasets/nih-chest-x-rays](https://www.innovatiana.com/fr/datasets/nih-chest-x-rays)
 - article : Wang et al., 2017
-  [https://openaccess.thecvf.com/content_cvpr_2017/html/Wang_ChestX-ray8_Hospital-Scale_Chest_CVPR_2017_paper.html](https://openaccess.thecvf.com/content_cvpr_2017/html/Wang_ChestX-ray8_Hospital-Scale_Chest_CVPR_2017_paper.html)
 
 Fichiers prepares localement :
 
 - [`data/nih/nih_multimodal_metadata.csv`](data/nih/nih_multimodal_metadata.csv)
 - [`data/nih/import_summary.json`](data/nih/import_summary.json)
 
-## Structure du depot
+Point important :
+
+- la partie texte n'est pas un vrai compte-rendu radiologique libre
+- dans notre pipeline, on utilise un champ `metadata_text` reconstruit a partir des metadonnees et annotations NIH
+
+## Arborescence rapide
 
 ```text
 app/
@@ -143,30 +114,24 @@ python -m pip install --upgrade pip
 python -m pip install -r requirements.txt
 ```
 
-Si besoin :
+Si besoin pour MedMNIST :
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\scripts\install_medmnist_from_git.ps1
 ```
 
-Pour PyTorch GPU :
+Si besoin pour PyTorch GPU :
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\scripts\install_gpu_torch.ps1
 ```
 
-## Telechargement des donnees
+## Recuperation des donnees
 
 ### ChestMNIST
 
 ```powershell
 python .\scripts\download_medmnist_official.py --root data/medmnist --sizes 64 128 224
-```
-
-### IU X-Ray
-
-```powershell
-python .\scripts\import_iu_xray.py --output-dir data/iu_xray
 ```
 
 ### NIH
@@ -175,7 +140,7 @@ python .\scripts\import_iu_xray.py --output-dir data/iu_xray
 python .\scripts\import_nih_kagglehub.py --output-dir data/nih
 ```
 
-## Lancer les entrainements
+## Lancer les trainings
 
 ### Supervise
 
@@ -194,9 +159,9 @@ python .\scripts\train_anomaly.py --config .\configs\anomaly\conv_autoencoder.ya
 ### Multimodal
 
 ```powershell
-python .\scripts\train_multimodal.py --config .\configs\multimodal\image_only.yaml
-python .\scripts\train_multimodal.py --config .\configs\multimodal\text_only.yaml
-python .\scripts\train_multimodal.py --config .\configs\multimodal\fusion.yaml
+python .\scripts\train_multimodal.py --config .\configs\multimodal\image_only_nih_metadata.yaml
+python .\scripts\train_multimodal.py --config .\configs\multimodal\text_only_nih_metadata.yaml
+python .\scripts\train_multimodal.py --config .\configs\multimodal\fusion_nih_metadata.yaml
 ```
 
 ### Calibration des seuils
@@ -221,9 +186,9 @@ Adresse locale :
 
 - `http://127.0.0.1:5000`
 
-## Demo Streamlit
+## Demo
 
-Pour lancer la demo :
+Pour lancer Streamlit :
 
 ```powershell
 streamlit run .\app\streamlit_app.py
@@ -233,16 +198,16 @@ Adresse locale :
 
 - `http://127.0.0.1:8501`
 
-L'application permet :
+Dans la demo on peut :
 
-- de charger une radio thoracique
-- d'obtenir les predictions supervisees
-- d'afficher un score d'anomalie
-- de tester la branche multimodale si on ajoute un texte
+- charger une radio thoracique
+- voir les predictions supervisees
+- voir le score d'anomalie
+- tester la branche multimodale si on ajoute un texte
 
 ## Pipeline complet
 
-Pour tout relancer d'un coup :
+Pour relancer le pipeline principal :
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\scripts\start_final_project.ps1
@@ -254,26 +219,26 @@ Pour suivre l'avancement :
 powershell -ExecutionPolicy Bypass -File .\scripts\monitor_final_project.ps1
 ```
 
-## Checkpoints utilises par la demo
+## Checkpoints charges par la demo
 
 - supervision : [`artifacts/supervised/simple_cnn/best_model.pt`](artifacts/supervised/simple_cnn/best_model.pt)
 - seuils : [`artifacts/supervised/simple_cnn/class_thresholds.json`](artifacts/supervised/simple_cnn/class_thresholds.json)
 - anomalie : [`artifacts/anomaly/conv_autoencoder/best_autoencoder.pt`](artifacts/anomaly/conv_autoencoder/best_autoencoder.pt)
-- multimodal `image_only` : [`artifacts/multimodal/iu_xray_image_only/best_multimodal_model.pt`](artifacts/multimodal/iu_xray_image_only/best_multimodal_model.pt)
-- multimodal `text_only` : [`artifacts/multimodal/iu_xray_text_only/best_multimodal_model.pt`](artifacts/multimodal/iu_xray_text_only/best_multimodal_model.pt)
-- multimodal `fusion` : [`artifacts/multimodal/iu_xray_fusion/best_multimodal_model.pt`](artifacts/multimodal/iu_xray_fusion/best_multimodal_model.pt)
+- multimodal `image_only` : [`artifacts/multimodal/nih_image_only/best_multimodal_model.pt`](artifacts/multimodal/nih_image_only/best_multimodal_model.pt)
+- multimodal `metadata_only` : [`artifacts/multimodal/nih_metadata_only/best_multimodal_model.pt`](artifacts/multimodal/nih_metadata_only/best_multimodal_model.pt)
+- multimodal `fusion` : [`artifacts/multimodal/nih_fusion/best_multimodal_model.pt`](artifacts/multimodal/nih_fusion/best_multimodal_model.pt)
 
 ## Reproductibilite
 
-Quelques points importants :
+On a essaye de garder quelque chose de propre :
 
 - seed fixe `42`
 - separation `train / val / test`
 - sauvegarde du meilleur modele
-- tracking MLflow
+- suivi des runs dans MLflow
 - coherence entre les checkpoints traces et ceux charges dans la demo
 
-## Configuration utilisee
+## Config machine
 
 Machine de reference :
 
@@ -284,16 +249,24 @@ Machine de reference :
 - GPU NVIDIA RTX 2070 Max-Q
 - 16 Go de RAM
 
-## Temps d'entrainement observes
+## Temps observes
 
-Temps observes sur la machine de reference a partir des runs traces dans MLflow :
+Temps observes a partir des runs finaux traces dans MLflow :
 
-- `SimpleCNN` : 19 min 07 s
+- `SimpleCNN` : 20 min 47 s
 - `ResNet18 transfer` : 19 min 07 s
-- `TinyViT` : 6 min 16 s
-- `Conv Autoencoder` : 4 min 09 s
-- `Image only` : 5 min 37 s
-- `Text only` : 4 min 15 s
-- `Fusion image + texte` : 6 min 36 s
+- `TinyViT` : 6 min 37 s
+- `Conv Autoencoder` : 4 min 24 s
+- `Image only (NIH)` : 44 min 16 s
+- `Metadata only (NIH)` : 5 min 39 s
+- `Fusion image + metadata (NIH)` : 1 h 17 min au total
 
-Au total, le pipeline final d'entrainement represente environ `1 h 05 min`, hors telechargement des donnees, generation EDA et lancement des interfaces.
+A noter pour le `fusion` :
+
+- il y a eu environ `50 min 30 s` de train initial
+- puis `26 min 55 s` de finalisation/evaluation du checkpoint
+- cette reprise etait necessaire a cause d'une limite Windows sur la memoire partagee pendant l'evaluation de robustesse
+
+Si on additionne tout ce qui a servi a produire les artefacts finaux sur cette machine, on est autour de `2 h 58 min`, sans compter le telechargement des donnees, l'EDA et l'ouverture des interfaces.
+
+En pratique, sans la reprise du `fusion`, on serait plutot autour de `2 h 31 min`.

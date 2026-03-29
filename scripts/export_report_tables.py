@@ -71,6 +71,60 @@ def get_experiment_id(client: MlflowClient, experiment_name: str) -> str | None:
     return experiment.experiment_id
 
 
+def get_run_duration_ms(run) -> int | None:
+    if run.info.start_time is None or run.info.end_time is None:
+        return None
+    return run.info.end_time - run.info.start_time
+
+
+def infer_epoch_count(client: MlflowClient, run, metric_key: str | None) -> str:
+    candidate_metric_keys: list[str] = []
+    if metric_key:
+        candidate_metric_keys.append(metric_key)
+        if metric_key.startswith("best_"):
+            candidate_metric_keys.append(metric_key[len("best_") :])
+
+    for key in candidate_metric_keys:
+        history = client.get_metric_history(run.info.run_id, key)
+        steps = [metric.step for metric in history if metric.step is not None]
+        positive_steps = [step for step in steps if step > 0]
+        if positive_steps:
+            return str(max(positive_steps))
+
+    epochs = run.data.params.get("training.epochs")
+    if epochs is None:
+        return "-"
+    return epochs
+
+
+def find_companion_training_run(
+    client: MlflowClient,
+    *,
+    experiment_name: str,
+    run_name: str,
+    selected_run,
+) -> dict | None:
+    experiment_id = get_experiment_id(client, experiment_name)
+    if experiment_id is None:
+        return None
+
+    runs = client.search_runs(
+        experiment_ids=[experiment_id],
+        filter_string=f"tags.mlflow.runName = '{run_name}'",
+    )
+    selected_start = selected_run.info.start_time or float("inf")
+    candidates = [
+        run
+        for run in runs
+        if run.info.run_id != selected_run.info.run_id
+        and run.data.params.get("training.epochs") not in (None, "0")
+        and (run.info.end_time or run.info.start_time or 0) <= selected_start
+    ]
+    if not candidates:
+        return None
+    return max(candidates, key=lambda run: run.info.end_time or run.info.start_time or 0)
+
+
 def pick_run(
     client: MlflowClient,
     experiment_name: str,
@@ -133,14 +187,31 @@ def build_snapshot(
     run = selected["run"]
     params = run.data.params
     metrics = run.data.metrics
-    duration_ms = None
-    if run.info.start_time is not None and run.info.end_time is not None:
-        duration_ms = run.info.end_time - run.info.start_time
+    duration_ms = get_run_duration_ms(run)
+    epochs = infer_epoch_count(client, run, best_metric)
+
+    if params.get("training.epochs") == "0":
+        companion_run = find_companion_training_run(
+            client,
+            experiment_name=experiment_name,
+            run_name=run_name,
+            selected_run=run,
+        )
+        if companion_run is not None:
+            companion_duration_ms = get_run_duration_ms(companion_run)
+            if duration_ms is None:
+                duration_ms = companion_duration_ms
+            elif companion_duration_ms is not None:
+                duration_ms += companion_duration_ms
+            companion_epochs = infer_epoch_count(client, companion_run, best_metric)
+            if companion_epochs != "-":
+                epochs = companion_epochs
+
     return RunSnapshot(
         label=label,
         status="termine",
         device=params.get("device", "-"),
-        epochs=params.get("training.epochs", "-"),
+        epochs=epochs,
         duration=format_duration(duration_ms),
         best_val=format_metric(metrics.get(best_metric)),
         test_roc_auc=format_metric(metrics.get(test_roc_auc_metric)),
@@ -156,15 +227,15 @@ def build_robustness_row(client: MlflowClient) -> tuple[str, str, str]:
     selected = pick_run(
         client,
         experiment_name="radiology_multimodal",
-        run_name="iu_xray_fusion_text",
+        run_name="nih_fusion_metadata",
         best_metric="test_macro_roc_auc",
     )
     if selected is None:
-        return ("Fusion IU X-Ray", "n.d.", "n.d.")
+        return ("Fusion NIH", "n.d.", "n.d.")
     run = selected["run"]
     metrics = run.data.metrics
     return (
-        "Fusion IU X-Ray",
+        "Fusion NIH",
         format_metric(metrics.get("test_text_missing_macro_roc_auc")),
         format_metric(metrics.get("test_image_missing_macro_roc_auc")),
     )
@@ -224,9 +295,9 @@ def multimodal_rows(client: MlflowClient) -> list[RunSnapshot]:
     return [
         build_snapshot(
             client,
-            label="Image only",
+            label="Image only (NIH)",
             experiment_name="radiology_multimodal",
-            run_name="iu_xray_image_only",
+            run_name="nih_image_only",
             best_metric="val_macro_roc_auc",
             test_roc_auc_metric="test_macro_roc_auc",
             test_ap_metric="test_macro_average_precision",
@@ -234,9 +305,9 @@ def multimodal_rows(client: MlflowClient) -> list[RunSnapshot]:
         ),
         build_snapshot(
             client,
-            label="Text only",
+            label="Metadata only (NIH)",
             experiment_name="radiology_multimodal",
-            run_name="iu_xray_text_only",
+            run_name="nih_metadata_only",
             best_metric="val_macro_roc_auc",
             test_roc_auc_metric="test_macro_roc_auc",
             test_ap_metric="test_macro_average_precision",
@@ -244,9 +315,9 @@ def multimodal_rows(client: MlflowClient) -> list[RunSnapshot]:
         ),
         build_snapshot(
             client,
-            label="Fusion image + texte",
+            label="Fusion image + metadata (NIH)",
             experiment_name="radiology_multimodal",
-            run_name="iu_xray_fusion_text",
+            run_name="nih_fusion_metadata",
             best_metric="val_macro_roc_auc",
             test_roc_auc_metric="test_macro_roc_auc",
             test_ap_metric="test_macro_average_precision",
@@ -323,9 +394,9 @@ def build_deployment_entries(client: MlflowClient) -> list[DeploymentEntry]:
     )
     selected_multimodal = build_snapshot(
         client,
-        label="Fusion image + texte",
+        label="Fusion image + metadata (NIH)",
         experiment_name="radiology_multimodal",
-        run_name="iu_xray_fusion_text",
+        run_name="nih_fusion_metadata",
         best_metric="val_macro_roc_auc",
         test_roc_auc_metric="test_macro_roc_auc",
         test_ap_metric="test_macro_average_precision",
@@ -352,8 +423,8 @@ def build_deployment_entries(client: MlflowClient) -> list[DeploymentEntry]:
         ),
         DeploymentEntry(
             component="Multimodal",
-            checkpoint_label="multimodal/iu_xray_fusion",
-            checkpoint_path="artifacts/multimodal/iu_xray_fusion/best_multimodal_model.pt",
+            checkpoint_label="multimodal/nih_fusion",
+            checkpoint_path="artifacts/multimodal/nih_fusion/best_multimodal_model.pt",
             experiment_name=selected_multimodal.experiment_name,
             run_name=selected_multimodal.run_name,
             run_id=selected_multimodal.run_id,
@@ -427,9 +498,9 @@ def main() -> None:
         for row in all_rows
     )
     snapshot_note = (
-        rf"Les tableaux ci-dessous ont ete generes automatiquement depuis le suivi MLflow le {snapshot_time}. Tous les runs finaux attendus sont disponibles dans ce snapshot. Les quickstarts ne sont pas reportes ici afin de ne conserver que les experiences finales du projet."
+        rf"Les tableaux ci-dessous ont ete generes automatiquement depuis le suivi MLflow le {snapshot_time}. Tous les runs finaux attendus sont disponibles dans ce snapshot. Lorsqu'un run final a necessite une finalisation separee depuis un checkpoint, la duree reportee est agregée pour refleter le cout complet de production de l'artefact final. Les quickstarts ne sont pas reportes ici afin de ne conserver que les experiences finales du projet."
         if not missing_results
-        else rf"Les tableaux ci-dessous ont ete generes automatiquement depuis le suivi MLflow le {snapshot_time}. Les cellules \textit{{n.d.}} correspondent a des runs finaux absents ou non termines. Les quickstarts ne sont pas reportes ici afin de ne conserver que les experiences finales du projet."
+        else rf"Les tableaux ci-dessous ont ete generes automatiquement depuis le suivi MLflow le {snapshot_time}. Les cellules \textit{{n.d.}} correspondent a des runs finaux absents ou non termines. Lorsqu'un run final a necessite une finalisation separee depuis un checkpoint, la duree reportee est agregée pour refleter le cout complet de production de l'artefact final. Les quickstarts ne sont pas reportes ici afin de ne conserver que les experiences finales du projet."
     )
 
     lines: list[str] = [

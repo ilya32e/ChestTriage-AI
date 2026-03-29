@@ -23,14 +23,14 @@ python .\scripts\train_supervised.py --config .\configs\supervised\tiny_vit.yaml
 Write-Host "[6/10] Training anomaly model: Conv Autoencoder..."
 python .\scripts\train_anomaly.py --config .\configs\anomaly\conv_autoencoder.yaml
 
-Write-Host "[7/10] Training multimodal baseline: image only..."
-python .\scripts\train_multimodal.py --config .\configs\multimodal\image_only.yaml
+Write-Host "[7/10] Training multimodal baseline: NIH image only..."
+python .\scripts\train_multimodal.py --config .\configs\multimodal\image_only_nih_metadata.yaml
 
-Write-Host "[8/10] Training multimodal baseline: text only..."
-python .\scripts\train_multimodal.py --config .\configs\multimodal\text_only.yaml
+Write-Host "[8/10] Training multimodal baseline: NIH metadata only..."
+python .\scripts\train_multimodal.py --config .\configs\multimodal\text_only_nih_metadata.yaml
 
-Write-Host "[9/10] Training multimodal fusion model..."
-python .\scripts\train_multimodal.py --config .\configs\multimodal\fusion.yaml
+Write-Host "[9/10] Training multimodal fusion model: NIH image + metadata..."
+python .\scripts\train_multimodal.py --config .\configs\multimodal\fusion_nih_metadata.yaml
 
 Write-Host "[10/10] Refreshing report tables and deployment manifest..."
 python .\scripts\export_report_tables.py

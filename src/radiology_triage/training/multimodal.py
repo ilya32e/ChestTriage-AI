@@ -23,7 +23,7 @@ from radiology_triage.utils.repro import get_device, seed_everything
 
 
 def run_multimodal_experiment(config: dict[str, Any]) -> dict[str, Any]:
-    seed_everything(config.get("seed", 42))
+    seed_everything(config.get("seed", 42), deterministic=config.get("deterministic", False))
     device = get_device()
     output_dir = ensure_dir(config["output_dir"])
     save_yaml(config, output_dir / "resolved_config.yaml")
@@ -46,6 +46,8 @@ def run_multimodal_experiment(config: dict[str, Any]) -> dict[str, Any]:
         weight_decay=training_cfg.get("weight_decay", 0.0),
     )
     scheduler = _build_scheduler(optimizer, training_cfg)
+    use_amp = bool(training_cfg.get("use_amp", True) and device.type == "cuda")
+    scaler = torch.amp.GradScaler(device.type, enabled=use_amp)
 
     mode = config["model"]["mode"].lower()
     history: dict[str, list[float]] = {
@@ -68,53 +70,102 @@ def run_multimodal_experiment(config: dict[str, Any]) -> dict[str, Any]:
         mlflow.log_params(flatten_dict(config))
         mlflow.log_param("device", str(device))
         mlflow.log_param("vocab_size", loaders.vocab.size)
+        mlflow.log_param("use_amp", use_amp)
 
-        for epoch in range(1, training_cfg["epochs"] + 1):
-            train_loss = _train_one_epoch(model, loaders.train, optimizer, criterion, device, mode, epoch)
-            val_loss, val_metrics, _ = _evaluate(model, loaders.val, criterion, device, loaders.label_names, mode)
+        if training_cfg["epochs"] > 0:
+            for epoch in range(1, training_cfg["epochs"] + 1):
+                train_loss = _train_one_epoch(
+                    model,
+                    loaders.train,
+                    optimizer,
+                    criterion,
+                    device,
+                    mode,
+                    epoch,
+                    scaler,
+                    use_amp,
+                )
+                val_loss, val_metrics, _ = _evaluate(
+                    model,
+                    loaders.val,
+                    criterion,
+                    device,
+                    loaders.label_names,
+                    mode,
+                    use_amp=use_amp,
+                )
 
-            history["train_loss"].append(train_loss)
+                history["train_loss"].append(train_loss)
+                history["val_loss"].append(val_loss)
+                history["val_macro_roc_auc"].append(val_metrics["macro_roc_auc"])
+                history["val_macro_f1"].append(val_metrics["macro_f1"])
+
+                mlflow.log_metrics(
+                    {
+                        "train_loss": train_loss,
+                        "val_loss": val_loss,
+                        "val_macro_roc_auc": val_metrics["macro_roc_auc"],
+                        "val_macro_f1": val_metrics["macro_f1"],
+                        "val_macro_average_precision": val_metrics["macro_average_precision"],
+                    },
+                    step=epoch,
+                )
+
+                if scheduler is not None:
+                    scheduler.step()
+
+                if val_metrics["macro_roc_auc"] > best_score:
+                    best_score = val_metrics["macro_roc_auc"]
+                    best_epoch = epoch
+                    patience_counter = 0
+                    save_checkpoint(
+                        best_checkpoint_path,
+                        {
+                            "state_dict": model.state_dict(),
+                            "config": config,
+                            "label_names": loaders.label_names,
+                            "vocab_state": loaders.vocab.state_dict(),
+                            "vocab_size": loaders.vocab.size,
+                            "image_size": config["dataset"]["image_size"],
+                            "max_length": config["dataset"]["max_length"],
+                            "mlflow_run_id": run_id,
+                            "mlflow_experiment_name": config["experiment_name"],
+                            "mlflow_run_name": run_name,
+                            "best_epoch": epoch,
+                        },
+                    )
+                else:
+                    patience_counter += 1
+                    if patience_counter >= patience:
+                        break
+        else:
+            if not best_checkpoint_path.exists():
+                raise FileNotFoundError(f"Checkpoint not found for evaluation-only run: {best_checkpoint_path}")
+            checkpoint = torch.load(best_checkpoint_path, map_location=device)
+            model.load_state_dict(checkpoint["state_dict"])
+            best_epoch = int(checkpoint.get("best_epoch", 0))
+            val_loss, val_metrics, _ = _evaluate(
+                model,
+                loaders.val,
+                criterion,
+                device,
+                loaders.label_names,
+                mode,
+                use_amp=use_amp,
+            )
+            best_score = val_metrics["macro_roc_auc"]
             history["val_loss"].append(val_loss)
             history["val_macro_roc_auc"].append(val_metrics["macro_roc_auc"])
             history["val_macro_f1"].append(val_metrics["macro_f1"])
-
             mlflow.log_metrics(
                 {
-                    "train_loss": train_loss,
                     "val_loss": val_loss,
                     "val_macro_roc_auc": val_metrics["macro_roc_auc"],
                     "val_macro_f1": val_metrics["macro_f1"],
                     "val_macro_average_precision": val_metrics["macro_average_precision"],
                 },
-                step=epoch,
+                step=best_epoch,
             )
-
-            if scheduler is not None:
-                scheduler.step()
-
-            if val_metrics["macro_roc_auc"] > best_score:
-                best_score = val_metrics["macro_roc_auc"]
-                best_epoch = epoch
-                patience_counter = 0
-                save_checkpoint(
-                    best_checkpoint_path,
-                    {
-                        "state_dict": model.state_dict(),
-                        "config": config,
-                        "label_names": loaders.label_names,
-                        "vocab_state": loaders.vocab.state_dict(),
-                        "vocab_size": loaders.vocab.size,
-                        "image_size": config["dataset"]["image_size"],
-                        "max_length": config["dataset"]["max_length"],
-                        "mlflow_run_id": run_id,
-                        "mlflow_experiment_name": config["experiment_name"],
-                        "mlflow_run_name": run_name,
-                    },
-                )
-            else:
-                patience_counter += 1
-                if patience_counter >= patience:
-                    break
 
         checkpoint = torch.load(best_checkpoint_path, map_location=device)
         model.load_state_dict(checkpoint["state_dict"])
@@ -125,6 +176,7 @@ def run_multimodal_experiment(config: dict[str, Any]) -> dict[str, Any]:
             device,
             loaders.label_names,
             mode,
+            use_amp=use_amp,
             return_outputs=True,
         )
         if test_outputs is None:
@@ -151,6 +203,7 @@ def run_multimodal_experiment(config: dict[str, Any]) -> dict[str, Any]:
                 device,
                 loaders.label_names,
                 mode,
+                use_amp=use_amp,
                 disable_text=True,
             )
             _, image_missing_metrics, _ = _evaluate(
@@ -160,6 +213,7 @@ def run_multimodal_experiment(config: dict[str, Any]) -> dict[str, Any]:
                 device,
                 loaders.label_names,
                 mode,
+                use_amp=use_amp,
                 disable_image=True,
             )
             outputs["robustness"] = {
@@ -204,17 +258,21 @@ def _train_one_epoch(
     device: torch.device,
     mode: str,
     epoch: int,
+    scaler: torch.amp.GradScaler,
+    use_amp: bool,
 ) -> float:
     model.train()
     total_loss = 0.0
     total_items = 0
     for batch in tqdm(loader, desc=f"MM Train {epoch}", leave=False):
-        labels = batch["labels"].to(device)
+        labels = batch["labels"].to(device, non_blocking=True)
         optimizer.zero_grad(set_to_none=True)
-        logits = _forward(model, batch, device, mode)
-        loss = criterion(logits, labels)
-        loss.backward()
-        optimizer.step()
+        with torch.amp.autocast(device.type, enabled=use_amp):
+            logits = _forward(model, batch, device, mode)
+            loss = criterion(logits, labels)
+        scaler.scale(loss).backward()
+        scaler.step(optimizer)
+        scaler.update()
         batch_size = labels.size(0)
         total_loss += loss.item() * batch_size
         total_items += batch_size
@@ -229,6 +287,7 @@ def _evaluate(
     device: torch.device,
     label_names: list[str],
     mode: str,
+    use_amp: bool,
     disable_image: bool = False,
     disable_text: bool = False,
     return_outputs: bool = False,
@@ -240,9 +299,10 @@ def _evaluate(
     all_labels = []
 
     for batch in tqdm(loader, desc="MM Eval", leave=False):
-        labels = batch["labels"].to(device)
-        logits = _forward(model, batch, device, mode, disable_image=disable_image, disable_text=disable_text)
-        loss = criterion(logits, labels)
+        labels = batch["labels"].to(device, non_blocking=True)
+        with torch.amp.autocast(device.type, enabled=use_amp):
+            logits = _forward(model, batch, device, mode, disable_image=disable_image, disable_text=disable_text)
+            loss = criterion(logits, labels)
         probabilities = torch.sigmoid(logits)
 
         batch_size = labels.size(0)
@@ -268,15 +328,17 @@ def _forward(
     disable_image: bool = False,
     disable_text: bool = False,
 ) -> torch.Tensor:
-    image = batch["image"].to(device)
-    input_ids = batch["input_ids"].to(device)
-    attention_mask = batch["attention_mask"].to(device)
-
     if mode in {"image", "image_only"}:
+        image = batch["image"].to(device, non_blocking=True)
         return model(image)
     if mode in {"text", "text_only"}:
+        input_ids = batch["input_ids"].to(device, non_blocking=True)
+        attention_mask = batch["attention_mask"].to(device, non_blocking=True)
         return model(input_ids, attention_mask)
     if mode in {"fusion", "multimodal"}:
+        image = batch["image"].to(device, non_blocking=True)
+        input_ids = batch["input_ids"].to(device, non_blocking=True)
+        attention_mask = batch["attention_mask"].to(device, non_blocking=True)
         return model(
             image,
             input_ids,

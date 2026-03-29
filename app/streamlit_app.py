@@ -96,8 +96,6 @@ def format_anomaly_model_name(model_name: str) -> str:
 
 def infer_multimodal_dataset_name(config: dict[str, Any]) -> str:
     csv_path = str(config.get("dataset", {}).get("csv_path", "")).lower()
-    if "iu_xray" in csv_path or "openi" in csv_path:
-        return "IU X-Ray"
     if "nih" in csv_path:
         return "NIH"
     return "Multimodal"
@@ -476,8 +474,8 @@ with st.expander("Modifier les checkpoints", expanded=False):
             "Checkpoint image seule",
             value=resolve_default_checkpoint(
                 [
-                    "artifacts/multimodal/iu_xray_image_only_224/best_multimodal_model.pt",
-                    "artifacts/multimodal/iu_xray_image_only/best_multimodal_model.pt",
+                    "artifacts/multimodal/nih_image_only_224/best_multimodal_model.pt",
+                    "artifacts/multimodal/nih_image_only/best_multimodal_model.pt",
                 ]
             ),
         )
@@ -485,8 +483,8 @@ with st.expander("Modifier les checkpoints", expanded=False):
             "Checkpoint texte seul",
             value=resolve_default_checkpoint(
                 [
-                    "artifacts/multimodal/iu_xray_text_only_224/best_multimodal_model.pt",
-                    "artifacts/multimodal/iu_xray_text_only/best_multimodal_model.pt",
+                    "artifacts/multimodal/nih_metadata_only_224/best_multimodal_model.pt",
+                    "artifacts/multimodal/nih_metadata_only/best_multimodal_model.pt",
                 ]
             ),
         )
@@ -494,9 +492,8 @@ with st.expander("Modifier les checkpoints", expanded=False):
             "Checkpoint fusion",
             value=resolve_default_checkpoint(
                 [
-                    "artifacts/multimodal/iu_xray_fusion_224/best_multimodal_model.pt",
-                    "artifacts/multimodal/iu_xray_fusion/best_multimodal_model.pt",
-                    "artifacts/multimodal/fusion/best_multimodal_model.pt",
+                    "artifacts/multimodal/nih_fusion_224/best_multimodal_model.pt",
+                    "artifacts/multimodal/nih_fusion/best_multimodal_model.pt",
                 ]
             ),
         )
@@ -564,7 +561,7 @@ with st.sidebar:
         render_traceability("Fusion", multimodal_traceability)
 
 uploaded_file = st.file_uploader("Charger une radiographie thoracique", type=["png", "jpg", "jpeg"])
-report_text = st.text_area("Compte-rendu ou texte associé pour la preuve de concept multimodale", height=160)
+report_text = st.text_area("Texte ou métadonnées structurées associées pour la preuve de concept multimodale", height=160)
 
 if uploaded_file is None:
     st.info("Ajoute une image pour lancer l'inférence.")
@@ -670,8 +667,8 @@ else:
     st.divider()
     st.subheader("Preuve de concept multimodale")
     st.info(
-        "Preuve de concept multimodale. Cette sortie est fournie à titre comparatif "
-        "et peut être sensible au texte saisi."
+        "Preuve de concept multimodale sur NIH. Cette sortie est fournie à titre comparatif "
+        "et peut être sensible au texte ou aux métadonnées saisies."
     )
 
     multimodal_columns = st.columns(3)

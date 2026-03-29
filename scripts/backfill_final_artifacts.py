@@ -31,9 +31,9 @@ def main() -> None:
     backfill_supervised(ROOT / "artifacts" / "supervised" / "resnet18" / "best_model.pt")
     backfill_supervised(ROOT / "artifacts" / "supervised" / "tiny_vit" / "best_model.pt")
     backfill_anomaly(ROOT / "artifacts" / "anomaly" / "conv_autoencoder" / "best_autoencoder.pt")
-    backfill_multimodal(ROOT / "artifacts" / "multimodal" / "iu_xray_image_only" / "best_multimodal_model.pt")
-    backfill_multimodal(ROOT / "artifacts" / "multimodal" / "iu_xray_text_only" / "best_multimodal_model.pt")
-    backfill_multimodal(ROOT / "artifacts" / "multimodal" / "iu_xray_fusion" / "best_multimodal_model.pt")
+    backfill_multimodal(ROOT / "artifacts" / "multimodal" / "nih_image_only" / "best_multimodal_model.pt")
+    backfill_multimodal(ROOT / "artifacts" / "multimodal" / "nih_metadata_only" / "best_multimodal_model.pt")
+    backfill_multimodal(ROOT / "artifacts" / "multimodal" / "nih_fusion" / "best_multimodal_model.pt")
 
 
 def backfill_supervised(checkpoint_path: Path) -> None:

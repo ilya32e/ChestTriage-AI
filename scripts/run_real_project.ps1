@@ -14,14 +14,14 @@ python .\scripts\calibrate_supervised_thresholds.py --checkpoint .\artifacts\sup
 Write-Host "[3/6] Training anomaly runtime model (Conv Autoencoder on ChestMNIST)..."
 python .\scripts\train_anomaly.py --config .\configs\anomaly\conv_autoencoder.yaml
 
-Write-Host "[4/6] Training multimodal runtime model (IU X-Ray image only)..."
-python .\scripts\train_multimodal.py --config .\configs\multimodal\image_only.yaml
+Write-Host "[4/6] Training multimodal runtime model (NIH image only)..."
+python .\scripts\train_multimodal.py --config .\configs\multimodal\image_only_nih_metadata.yaml
 
-Write-Host "[5/6] Training multimodal runtime model (IU X-Ray text only)..."
-python .\scripts\train_multimodal.py --config .\configs\multimodal\text_only.yaml
+Write-Host "[5/6] Training multimodal runtime model (NIH metadata only)..."
+python .\scripts\train_multimodal.py --config .\configs\multimodal\text_only_nih_metadata.yaml
 
-Write-Host "[6/6] Training multimodal runtime model (IU X-Ray image + text fusion)..."
-python .\scripts\train_multimodal.py --config .\configs\multimodal\fusion.yaml
+Write-Host "[6/6] Training multimodal runtime model (NIH image + metadata fusion)..."
+python .\scripts\train_multimodal.py --config .\configs\multimodal\fusion_nih_metadata.yaml
 
 Write-Host "[Final] Refreshing deployment manifest and starting Streamlit app..."
 python .\scripts\export_report_tables.py
